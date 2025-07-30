@@ -1,0 +1,258 @@
+{
+  "info": {
+    "name": "Gemini Backend Clone API",
+    "_postman_id": "12345678-abcd-efgh-ijkl-1234567890ab",
+    "description": "A complete Postman collection for Gemini Backend Clone.\n\nFeatures:\n- User registration and login via mobile and OTP\n- AI-powered chatrooms\n- Stripe-based Pro subscriptions\n- Usage tracking and JWT auth\n\n**All endpoints are documented with request/response models and best-practice usage instructions.**\n\nSee README or OpenAPI docs for more.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+
+  "variable": [
+    { "key": "base_url", "value": "https://fa47d5a82a62.ngrok-free.app" },
+    { "key": "auth_token", "value": "" },
+    { "key": "mobile_number", "value": "8877445566" },
+    { "key": "chatroom_id", "value": "" },
+    { "key": "message_id", "value": "" }
+  ],
+
+  "item": [
+    {
+      "name": "Health & Info",
+      "description": "Service health and root information endpoints.",
+      "item": [
+        {
+          "name": "Root Endpoint",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/", "host": ["{{base_url}}"], "path": [""] }
+          },
+          "response": [],
+          "description": "**GET /**\nReturns basic service info and welcome message."
+        },
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] }
+          },
+          "response": [],
+          "description": "**GET /health**\nBasic health check endpoint. Returns `{ status: healthy }` if alive."
+        }
+      ]
+    },
+
+    {
+      "name": "Authentication",
+      "description": "End-to-end mobile-based authentication using SMS-like OTP.",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"mobile_number\": \"{{mobile_number}}\",\n  \"full_name\": \"Sagar Malviya\"\n}" },
+            "url": { "raw": "{{base_url}}/auth/signup", "host": ["{{base_url}}"], "path": ["auth", "signup"] }
+          },
+          "description": "**POST /auth/signup**\nRegisters a new user by mobile number. Triggers creation of a default (basic) subscription.",
+          "response": []
+        },
+        {
+          "name": "Send OTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"mobile_number\": \"{{mobile_number}}\"\n}" },
+            "url": { "raw": "{{base_url}}/auth/send-otp", "host": ["{{base_url}}"], "path": ["auth", "send-otp"] }
+          },
+          "description": "**POST /auth/send-otp**\nSends a one-time password (OTP) to the user's mobile number. (In dev/test, returns the OTP in response.)",
+          "response": []
+        },
+        {
+          "name": "Verify OTP & Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": { "exec": [
+                "if (pm.response.status === 200) {",
+                "   var jsonData = pm.response.json();",
+                "   pm.environment.set('auth_token', jsonData.access_token);",
+                "   console.log('Auth token saved:', jsonData.access_token);",
+                "}"
+              ] }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"mobile_number\": \"{{mobile_number}}\",\n  \"otp\": \"123456\"\n}" },
+            "url": { "raw": "{{base_url}}/auth/verify-otp", "host": ["{{base_url}}"], "path": ["auth", "verify-otp"] }
+          },
+          "description": "**POST /auth/verify-otp**\nVerifies the OTP for a given mobile number. Returns JWT access token for protected endpoints.",
+          "response": []
+        },
+        {
+          "name": "Forgot Password (OTP)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"mobile_number\": \"{{mobile_number}}\"\n}" },
+            "url": { "raw": "{{base_url}}/auth/forgot-password", "host": ["{{base_url}}"], "path": ["auth", "forgot-password"] }
+          },
+          "description": "**POST /auth/forgot-password**\n(For demo: Identical to send-otp) Triggers OTP for password reset.",
+          "response": []
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{auth_token}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"old_password\": \"oldpass\",\n  \"new_password\": \"newpass123\"\n}" },
+            "url": { "raw": "{{base_url}}/auth/change-password", "host": ["{{base_url}}"], "path": ["auth", "change-password"] }
+          },
+          "description": "**POST /auth/change-password**\nChanges the user's password. (Stubbed: For demo, just logs and returns success.)",
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "User Management",
+      "description": "Secure endpoints for fetching current user, their info and subscriptions.",
+      "item": [
+        {
+          "name": "Get User Profile",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{auth_token}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/user/me", "host": ["{{base_url}}"], "path": ["user", "me"] }
+          },
+          "description": "**GET /user/me**\nReturns complete details for the currently authenticated user, including latest subscription if any.",
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "Chatroom Management",
+      "description": "All API endpoints for AI-powered chatroom operations.",
+      "item": [
+        {
+          "name": "Create Chatroom",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.status === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('chatroom_id', jsonData.id);",
+                  "    console.log('Chatroom ID saved:', jsonData.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{auth_token}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Sample Chatroom\",\n  \"description\": \"Test Chatroom for AI\"\n}" },
+            "url": { "raw": "{{base_url}}/chatroom", "host": ["{{base_url}}"], "path": ["chatroom"] }
+          },
+          "description": "**POST /chatroom**\nCreates a new chatroom belonging to the current user.",
+          "response": []
+        },
+        {
+          "name": "List Chatrooms (Cached)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{auth_token}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/chatroom", "host": ["{{base_url}}"], "path": ["chatroom"] }
+          },
+          "description": "**GET /chatroom**\nReturns a cached list of the current user's chatrooms, ordered by last activity.",
+          "response": []
+        },
+        {
+          "name": "Get Single Chatroom",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{auth_token}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/chatroom/{{chatroom_id}}", "host": ["{{base_url}}"], "path": ["chatroom", "{{chatroom_id}}"] }
+          },
+          "description": "**GET /chatroom/{chatroom_id}**\nReturns details for one chatroom (must belong to the current user).",
+          "response": []
+        },
+        {
+          "name": "Send Message to AI",
+          "event": [],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{auth_token}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"content\": \"Hello AI! Can you help me with something?\"\n}" },
+            "url": { "raw": "{{base_url}}/chatroom/{{chatroom_id}}/message", "host": ["{{base_url}}"], "path": ["chatroom", "{{chatroom_id}}", "message"] }
+          },
+          "description": "**POST /chatroom/{chatroom_id}/message**\nSends a new message to the AI in a specific chatroom.\n\nReturns immediately with status='processing', then AI response is filled asynchronously.",
+          "response": []
+        },
+        {
+          "name": "Get Chat Message by ID",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{auth_token}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/chatroom/{{chatroom_id}}/message/{{message_id}}", "host": ["{{base_url}}"], "path": ["chatroom", "{{chatroom_id}}", "message", "{{message_id}}"] }
+          },
+          "description": "**GET /chatroom/{chatroom_id}/message/{message_id}**\nFetches a single message with its AI response and processing status.",
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "Subscription Management",
+      "description": "Endpoints for checking and managing user subscription plan (Basic, Pro). Integrates with Stripe.",
+      "item": [
+        {
+          "name": "Get Subscription Status",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{auth_token}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/subscription/status", "host": ["{{base_url}}"], "path": ["subscription", "status"] }
+          },
+          "description": "**GET /subscription/status**\nShows the user's current subscription plan (Basic/Pro), current period, and usage today.",
+          "response": []
+        },
+        {
+          "name": "Subscribe to Pro (Stripe)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{auth_token}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": { "raw": "{{base_url}}/subscribe/pro", "host": ["{{base_url}}"], "path": ["subscribe", "pro"] }
+          },
+          "description": "**POST /subscribe/pro**\nStarts a Stripe checkout for a Pro subscription. Returns checkout/session URLs.",
+          "response": []
+        }
+      ]
+    }
+  ]
+}

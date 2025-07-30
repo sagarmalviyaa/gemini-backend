@@ -1,0 +1,49 @@
+############ Python ############
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+.pyre/
+.pytype/
+cython_debug/
+celerybeat-schedule
+celerybeat.pid
+gemini.postman_collection.json
+
+############ Environment, Config & Secrets ############
+.env
+*.env
+data/
+logs/
+*.log
+*.pem
+*.crt
+*.key
+
+# Add alembic.ini and docker-compose.yml ONLY if you store secrets directly in these.
+alembic.ini
+docker-compose.yml
+
+############ Node.js (if using) ############
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+############ IDE/Editor/OS ############
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# You can remove the above line if you WANT to version your markdown/mermaid/json diagrams.

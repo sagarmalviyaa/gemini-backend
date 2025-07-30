@@ -1,10 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
 from datetime import datetime
-
+from typing import List
 from app.database import get_db
-from app.models import User, Chatroom, Message, MessageType, ProcessingStatus, UsageTracking
+from app.models import User, Chatroom, Message, MessageType, ProcessingStatus, SubscriptionTier, UsageTracking
 from app.schemas import (
     ChatroomCreate, ChatroomResponse, ChatroomListResponse,
     MessageCreate, MessageSendResponse, MessageResponse
@@ -13,12 +12,12 @@ from app.security import get_current_active_user
 from app.redis_client import redis_client
 from app.rate_limiter import rate_limiter
 from app.tasks import process_gemini_message
-
+from app.config import settings
 import logging
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chatroom", tags=["Chatroom Management"])
-
 
 @router.post("", response_model=ChatroomResponse)
 async def create_chatroom(
@@ -45,7 +44,6 @@ async def create_chatroom(
         created_at=chatroom.created_at,
         updated_at=chatroom.updated_at
     )
-
 
 @router.get("", response_model=ChatroomListResponse)
 async def list_chatrooms(
@@ -82,7 +80,6 @@ async def list_chatrooms(
         total_count=len(chatroom_responses)
     )
 
-
 @router.get("/{chatroom_id}", response_model=ChatroomResponse)
 async def get_chatroom(
     chatroom_id: str,
@@ -107,7 +104,6 @@ async def get_chatroom(
         updated_at=chatroom.updated_at
     )
 
-
 @router.post("/{chatroom_id}/message", response_model=MessageSendResponse)
 async def send_message(
     chatroom_id: str,
@@ -115,7 +111,31 @@ async def send_message(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    await rate_limiter.enforce_rate_limit(current_user)
+    # --- Enforce persistent daily limit from UsageTracking for BASIC users ---
+    today = datetime.utcnow().date()
+    sub = None
+    if current_user.subscriptions:
+        sub = max(current_user.subscriptions, key=lambda x: x.created_at)
+    usage = db.query(UsageTracking).filter(
+        UsageTracking.user_id == current_user.id,
+        UsageTracking.date == today
+    ).first()
+    messages_today = usage.message_count if usage else 0
+    if (
+        sub
+        and sub.plan_type == SubscriptionTier.BASIC
+        and messages_today >= settings.basic_daily_limit
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "message": "Daily message limit exceeded (persistent tracking)",
+                "current_usage": messages_today,
+                "limit": settings.basic_daily_limit,
+                "upgrade_required": True
+            }
+        )
+
     chatroom = db.query(Chatroom).filter(
         Chatroom.id == chatroom_id,
         Chatroom.user_id == current_user.id
@@ -134,34 +154,13 @@ async def send_message(
     chatroom.message_count += 1
     db.commit()
     db.refresh(user_message)
-    await rate_limiter.increment_usage(current_user)
 
-    # -------- USAGE TRACKING LOGGING HERE --------
-    today = datetime.utcnow().date()
-    usage = db.query(UsageTracking).filter(
-        UsageTracking.user_id == current_user.id,
-        UsageTracking.date == today
-    ).first()
-    if usage:
-        usage.message_count += 1
-        usage.api_calls += 1
-        usage.last_updated = datetime.utcnow()
-    else:
-        usage = UsageTracking(
-            user_id=current_user.id,
-            date=today,
-            message_count=1,
-            api_calls=1,
-            last_updated=datetime.utcnow()
-        )
-        db.add(usage)
-    db.commit()
-    # -------- END USAGE TRACKING LOGGING --------
+    # Increment usage in UsageTracking and Redis
+    await rate_limiter.increment_usage(current_user, db)
 
     recent_messages = db.query(Message).filter(
         Message.chatroom_id == chatroom.id
     ).order_by(Message.created_at.desc()).limit(10).all()
-
     context = [
         {
             "content": msg.content,
@@ -193,7 +192,6 @@ async def send_message(
         status="processing",
         estimated_response_time=30
     )
-
 
 @router.get("/{chatroom_id}/message/{message_id}", response_model=MessageResponse)
 async def get_message(

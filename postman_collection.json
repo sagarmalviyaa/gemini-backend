@@ -18,7 +18,7 @@
   },
 
   "variable": [
-    { "key": "base_url", "value": "https://fa47d5a82a62.ngrok-free.app" },
+    { "key": "base_url", "value": "https://gemini-backend-iseh.onrender.com" },
     { "key": "auth_token", "value": "" },
     { "key": "mobile_number", "value": "8877445566" },
     { "key": "chatroom_id", "value": "" },

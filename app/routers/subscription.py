@@ -58,7 +58,7 @@ async def get_subscription_status(
         db.add(subscription)
         db.commit()
         db.refresh(subscription)
-    usage = await rate_limiter.get_current_usage(current_user)
+    usage = await rate_limiter.get_current_usage(current_user, db)
     return SubscriptionStatusResponse(
         plan=subscription.plan_type,
         status=subscription.status.value,
